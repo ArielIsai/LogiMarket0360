@@ -187,14 +187,31 @@ public class UcCatalogoKits : UserControl, IRecargableVista
                 }
             }
 
-            // 2. Mostrar kits compuestos
+            // 2. Mostrar kits compuestos con stock ensamblable calculado en tiempo real
+            var stockDict = productos.ToDictionary(p => p.Sku, p => p.Stock);
             foreach (var k in kits)
             {
                 if (string.IsNullOrWhiteSpace(filtro) ||
                     k.Sku.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
                     k.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase))
                 {
-                    _dgvCatalogo.Rows.Add(k.Sku, $"{k.Nombre} (KIT)", $"USD {k.ObtenerPrecio():F2}", "—", $"{k.ObtenerPeso():F2} kg");
+                    var desglose = k.ObtenerDesgloseFisico(1);
+                    int stockCalculado = desglose.Count > 0
+                        ? desglose.Min(c => stockDict.TryGetValue(c.Sku, out var st) ? st / c.Cantidad : 0)
+                        : 0;
+
+                    var rowIdx = _dgvCatalogo.Rows.Add(
+                        k.Sku,
+                        $"{k.Nombre} (KIT)",
+                        $"USD {k.ObtenerPrecio():F2}",
+                        $"{stockCalculado} kits",
+                        $"{k.ObtenerPeso():F2} kg"
+                    );
+
+                    if (stockCalculado < 5)
+                    {
+                        _dgvCatalogo.Rows[rowIdx].DefaultCellStyle.ForeColor = Color.DarkOrange;
+                    }
                 }
             }
         }
