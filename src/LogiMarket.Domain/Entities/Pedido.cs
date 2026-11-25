@@ -17,7 +17,16 @@ public class Pedido
     public DateTime? FechaDespacho { get; set; }
     public DateTime? FechaEntrega { get; set; }
 
-    public EstadoPedidoEnum Estado { get; set; } = EstadoPedidoEnum.Borrador;
+    private EstadoPedidoEnum _estado = EstadoPedidoEnum.Borrador;
+    public EstadoPedidoEnum Estado
+    {
+        get => _estado;
+        set
+        {
+            _estado = value;
+            ActualizarObjetoEstado();
+        }
+    }
     public TipoEntregaEnum TipoEntrega { get; set; } = TipoEntregaEnum.Estandar;
     public string GuiaDespacho { get; set; } = string.Empty;
     public string IdempotencyKey { get; set; } = Guid.NewGuid().ToString("N");

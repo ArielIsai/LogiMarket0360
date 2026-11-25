@@ -101,6 +101,14 @@ public class ConfirmacionPedidoFacade
             );
         }
 
+        // Transición de Borrador a Validado tras pasar la validación
+        if (pedido.Estado == EstadoPedidoEnum.Borrador)
+        {
+            pedido.Validar();
+            await _pedidoRepo.UpdateAsync(pedido);
+            await _unitOfWork.CommitAsync();
+        }
+
         // 3. Procesar cobro simulado a través del puerto IPasarelaPago (Proxy -> Decorator -> Adapter)
         var resultadoPago = await _pasarelaPago.CobrarAsync(pedido.Total, claveIdempotencia, rolUsuario);
         if (!resultadoPago.Aprobado)
