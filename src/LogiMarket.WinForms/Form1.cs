@@ -217,6 +217,11 @@ public partial class Form1 : Form
         vista.Dock = DockStyle.Fill;
         _pnlContenido.Controls.Add(vista);
 
+        if (vista is IRecargableVista recargable)
+        {
+            _ = recargable.RecargarAsync();
+        }
+
         foreach (var (k, btn) in _navButtons)
         {
             if (k == clave)

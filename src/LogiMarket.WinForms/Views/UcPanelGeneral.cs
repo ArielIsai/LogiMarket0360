@@ -5,7 +5,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcPanelGeneral : UserControl
+public class UcPanelGeneral : UserControl, IRecargableVista
 {
     private readonly IPedidoRepository _pedidoRepo;
     private readonly IProductoRepository _productoRepo;
@@ -42,10 +42,18 @@ public class UcPanelGeneral : UserControl
         {
             if (evento is "PedidoConfirmado" or "PedidoDespachado" or "DevolucionProcesada" or "InventarioActualizado")
             {
-                Invoke(new Action(async () => await CargarDatosAsync()));
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(async () => await CargarDatosAsync()));
+                    else
+                        _ = CargarDatosAsync();
+                }
             }
         });
     }
+
+    public Task RecargarAsync() => CargarDatosAsync();
 
     private void InitializeUi()
     {

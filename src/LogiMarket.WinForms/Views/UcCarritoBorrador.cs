@@ -10,7 +10,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcCarritoBorrador : UserControl
+public class UcCarritoBorrador : UserControl, IRecargableVista
 {
     private readonly IPedidoRepository _pedidoRepo;
     private readonly IClienteRepository _clienteRepo;
@@ -194,6 +194,8 @@ public class UcCarritoBorrador : UserControl
 
         Load += async (s, e) => await CargarClientesComboAsync();
     }
+
+    public Task RecargarAsync() => CargarClientesComboAsync();
 
     private async Task CargarClientesComboAsync()
     {

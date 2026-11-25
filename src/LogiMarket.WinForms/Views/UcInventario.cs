@@ -6,7 +6,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcInventario : UserControl
+public class UcInventario : UserControl, IRecargableVista
 {
     private readonly IProductoRepository _productoRepo;
     private readonly IMovimientoInventarioRepository _movimientoRepo;
@@ -36,10 +36,18 @@ public class UcInventario : UserControl
         {
             if (evento is "InventarioActualizado" or "PedidoConfirmado" or "DevolucionProcesada")
             {
-                Invoke(new Action(async () => await CargarInventarioYMovimientosAsync()));
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(async () => await CargarInventarioYMovimientosAsync()));
+                    else
+                        _ = CargarInventarioYMovimientosAsync();
+                }
             }
         });
     }
+
+    public Task RecargarAsync() => CargarInventarioYMovimientosAsync();
 
     private void InitializeUi()
     {

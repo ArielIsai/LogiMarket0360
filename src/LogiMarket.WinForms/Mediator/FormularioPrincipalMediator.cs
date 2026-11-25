@@ -20,7 +20,14 @@ public class FormularioPrincipalMediator : IFormularioMediator
         // Distribuye las notificaciones a todos los colegas registrados sin acoplamiento directo entre vistas
         foreach (var colega in _colegas.Values)
         {
-            colega(evento, datos);
+            try
+            {
+                colega(evento, datos);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Mediator] Error al notificar evento '{evento}': {ex.Message}");
+            }
         }
     }
 }

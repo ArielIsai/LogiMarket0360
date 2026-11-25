@@ -6,7 +6,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcDevoluciones : UserControl
+public class UcDevoluciones : UserControl, IRecargableVista
 {
     private readonly IPedidoRepository _pedidoRepo;
     private readonly IDevolucionRepository _devolucionRepo;
@@ -50,10 +50,18 @@ public class UcDevoluciones : UserControl
         {
             if (evento is "PedidoEntregado" or "DevolucionProcesada")
             {
-                Invoke(new Action(async () => await CargarPedidosEntregadosAsync()));
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(async () => await CargarPedidosEntregadosAsync()));
+                    else
+                        _ = CargarPedidosEntregadosAsync();
+                }
             }
         });
     }
+
+    public Task RecargarAsync() => CargarPedidosEntregadosAsync();
 
     private void InitializeUi()
     {

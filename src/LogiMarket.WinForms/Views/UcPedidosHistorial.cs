@@ -5,7 +5,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcPedidosHistorial : UserControl
+public class UcPedidosHistorial : UserControl, IRecargableVista
 {
     private readonly IPedidoRepository _pedidoRepo;
     private readonly IFormularioMediator _mediator;
@@ -25,10 +25,18 @@ public class UcPedidosHistorial : UserControl
         {
             if (evento is "PedidoValidado" or "PedidoConfirmado" or "PedidoDespachado" or "DevolucionProcesada")
             {
-                Invoke(new Action(async () => await CargarPedidosAsync()));
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(async () => await CargarPedidosAsync()));
+                    else
+                        _ = CargarPedidosAsync();
+                }
             }
         });
     }
+
+    public Task RecargarAsync() => CargarPedidosAsync();
 
     private void InitializeUi()
     {

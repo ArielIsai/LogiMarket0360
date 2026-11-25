@@ -7,7 +7,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcCatalogoKits : UserControl
+public class UcCatalogoKits : UserControl, IRecargableVista
 {
     private readonly IProductoRepository _productoRepo;
     private readonly CatalogoService _catalogoService;
@@ -33,10 +33,18 @@ public class UcCatalogoKits : UserControl
         {
             if (evento is "InventarioActualizado" or "PedidoConfirmado" or "DevolucionProcesada")
             {
-                Invoke(new Action(async () => await CargarCatalogoAsync()));
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(async () => await CargarCatalogoAsync()));
+                    else
+                        _ = CargarCatalogoAsync();
+                }
             }
         });
     }
+
+    public Task RecargarAsync() => CargarCatalogoAsync();
 
     private void InitializeUi()
     {

@@ -6,7 +6,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcCobro : UserControl
+public class UcCobro : UserControl, IRecargableVista
 {
     private readonly IPedidoRepository _pedidoRepo;
     private readonly ConfirmacionPedidoFacade _facade;
@@ -44,10 +44,18 @@ public class UcCobro : UserControl
         {
             if (evento is "PedidoValidado" or "SesionIniciada")
             {
-                Invoke(new Action(async () => await CargarPedidosParaCobroAsync()));
+                if (IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(async () => await CargarPedidosParaCobroAsync()));
+                    else
+                        _ = CargarPedidosParaCobroAsync();
+                }
             }
         });
     }
+
+    public Task RecargarAsync() => CargarPedidosParaCobroAsync();
 
     private void InitializeUi()
     {

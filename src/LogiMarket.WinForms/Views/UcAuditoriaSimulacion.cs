@@ -6,7 +6,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcAuditoriaSimulacion : UserControl
+public class UcAuditoriaSimulacion : UserControl, IRecargableVista
 {
     private readonly IAuditoriaRepository _auditoriaRepo;
     private readonly IEventoOutboxRepository _outboxRepo;
@@ -38,9 +38,17 @@ public class UcAuditoriaSimulacion : UserControl
 
         _mediator.RegistrarColega("UcAuditoriaSimulacion", (evento, datos) =>
         {
-            Invoke(new Action(async () => await CargarAuditoriaYOutboxAsync()));
+            if (IsHandleCreated)
+            {
+                if (InvokeRequired)
+                    BeginInvoke(new Action(async () => await CargarAuditoriaYOutboxAsync()));
+                else
+                    _ = CargarAuditoriaYOutboxAsync();
+            }
         });
     }
+
+    public Task RecargarAsync() => CargarAuditoriaYOutboxAsync();
 
     private void InitializeUi()
     {

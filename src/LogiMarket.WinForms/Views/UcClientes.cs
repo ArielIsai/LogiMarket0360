@@ -5,7 +5,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcClientes : UserControl
+public class UcClientes : UserControl, IRecargableVista
 {
     private readonly IClienteRepository _clienteRepo;
     private readonly IUnitOfWork _unitOfWork;
@@ -28,6 +28,8 @@ public class UcClientes : UserControl
 
         InitializeUi();
     }
+
+    public Task RecargarAsync() => CargarClientesAsync();
 
     private void InitializeUi()
     {

@@ -7,7 +7,7 @@ using LogiMarket.WinForms.Mediator;
 
 namespace LogiMarket.WinForms.Views;
 
-public class UcReportes : UserControl
+public class UcReportes : UserControl, IRecargableVista
 {
     private readonly IPedidoRepository _pedidoRepo;
     private readonly IDevolucionRepository _devolucionRepo;
@@ -174,6 +174,12 @@ public class UcReportes : UserControl
             await CargarCombosReporteAsync();
             await EjecutarConsultaInterpreterAsync();
         };
+    }
+
+    public async Task RecargarAsync()
+    {
+        await CargarCombosReporteAsync();
+        await EjecutarConsultaInterpreterAsync();
     }
 
     private async Task CargarCombosReporteAsync()
