@@ -64,4 +64,11 @@ public class HistorialBorradorCareTaker
         _rehacerStack.Clear();
         _bloqueado = true;
     }
+
+    public void ReiniciarParaNuevoBorrador()
+    {
+        _deshacerStack.Clear();
+        _rehacerStack.Clear();
+        _bloqueado = false;
+    }
 }

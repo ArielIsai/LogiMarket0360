@@ -217,6 +217,8 @@ public class UcCarritoBorrador : UserControl, IRecargableVista
     {
         var dummy = new Cliente("TEMP", "Temporal", "00", CategoriaCliente.Normal, "", "");
         _pedidoBorrador = new Pedido($"PED-{DateTime.UtcNow:mmss}", dummy, TipoEntregaEnum.Estandar, 5.00m);
+        _careTaker.ReiniciarParaNuevoBorrador();
+        ActualizarBotonesMemento();
     }
 
     private void GuardarSnapshot(string accion)
@@ -258,59 +260,66 @@ public class UcCarritoBorrador : UserControl, IRecargableVista
 
     private async void MostrarDialogoAgregar(bool esKit)
     {
-        var form = new Form
+        try
         {
-            Text = esKit ? "Seleccionar Kit" : "Seleccionar Producto",
-            Size = new Size(380, 220),
-            StartPosition = FormStartPosition.CenterParent,
-            FormBorderStyle = FormBorderStyle.FixedDialog,
-            MaximizeBox = false,
-            MinimizeBox = false
-        };
-
-        var lblItem = new Label { Text = "Elemento:", Location = new Point(20, 20), AutoSize = true };
-        var cmb = new ComboBox { Location = new Point(20, 45), Width = 320, DropDownStyle = ComboBoxStyle.DropDownList };
-
-        if (esKit)
-        {
-            foreach (var k in _catalogoService.ListarKits())
-                cmb.Items.Add($"{k.Sku} - {k.Nombre} (USD {k.ObtenerPrecio():F2})");
-        }
-        else
-        {
-            var prods = await _productoRepo.GetAllAsync();
-            foreach (var p in prods)
-                cmb.Items.Add($"{p.Sku} - {p.Nombre} (USD {p.Precio:F2})");
-        }
-
-        if (cmb.Items.Count > 0) cmb.SelectedIndex = 0;
-
-        var lblQ = new Label { Text = "Cantidad:", Location = new Point(20, 80), AutoSize = true };
-        var nud = new NumericUpDown { Location = new Point(20, 105), Width = 120, Minimum = 1, Maximum = 100, Value = 1 };
-
-        var btnOk = new Button { Text = "Agregar", Location = new Point(160, 103), Width = 100, Height = 28, DialogResult = DialogResult.OK };
-        form.Controls.AddRange(new Control[] { lblItem, cmb, lblQ, nud, btnOk });
-
-        if (form.ShowDialog() == DialogResult.OK && cmb.SelectedItem != null)
-        {
-            var sku = cmb.SelectedItem.ToString()!.Split(' ')[0];
-            var cantidad = (int)nud.Value;
-
-            GuardarSnapshot($"Añadir {sku} x{cantidad}");
-
-            var elemento = await _catalogoService.ObtenerElementoCatalogoAsync(sku);
-            if (elemento != null)
+            var form = new Form
             {
-                var linea = new PedidoDetalle(elemento.Sku, elemento.Nombre, elemento.EsKit, cantidad, elemento.ObtenerPrecio());
-                foreach (var comp in elemento.ObtenerDesgloseFisico(cantidad))
-                {
-                    linea.ComponentesFisicos.Add(new PedidoDetalleComponente(
-                        comp.Sku, comp.Nombre, comp.Cantidad, comp.PrecioUnitario, comp.PesoUnitario
-                    ));
-                }
-                _pedidoBorrador.Lineas.Add(linea);
-                RecalcularBorrador();
+                Text = esKit ? "Seleccionar Kit" : "Seleccionar Producto",
+                Size = new Size(380, 220),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            var lblItem = new Label { Text = "Elemento:", Location = new Point(20, 20), AutoSize = true };
+            var cmb = new ComboBox { Location = new Point(20, 45), Width = 320, DropDownStyle = ComboBoxStyle.DropDownList };
+
+            if (esKit)
+            {
+                foreach (var k in _catalogoService.ListarKits())
+                    cmb.Items.Add($"{k.Sku} - {k.Nombre} (USD {k.ObtenerPrecio():F2})");
             }
+            else
+            {
+                var prods = await _productoRepo.GetAllAsync();
+                foreach (var p in prods)
+                    cmb.Items.Add($"{p.Sku} - {p.Nombre} (USD {p.Precio:F2})");
+            }
+
+            if (cmb.Items.Count > 0) cmb.SelectedIndex = 0;
+
+            var lblQ = new Label { Text = "Cantidad:", Location = new Point(20, 80), AutoSize = true };
+            var nud = new NumericUpDown { Location = new Point(20, 105), Width = 120, Minimum = 1, Maximum = 100, Value = 1 };
+
+            var btnOk = new Button { Text = "Agregar", Location = new Point(160, 103), Width = 100, Height = 28, DialogResult = DialogResult.OK };
+            form.Controls.AddRange(new Control[] { lblItem, cmb, lblQ, nud, btnOk });
+
+            if (form.ShowDialog() == DialogResult.OK && cmb.SelectedItem != null)
+            {
+                var sku = cmb.SelectedItem.ToString()!.Split(' ')[0];
+                var cantidad = (int)nud.Value;
+
+                GuardarSnapshot($"Añadir {sku} x{cantidad}");
+
+                var elemento = await _catalogoService.ObtenerElementoCatalogoAsync(sku);
+                if (elemento != null)
+                {
+                    var linea = new PedidoDetalle(elemento.Sku, elemento.Nombre, elemento.EsKit, cantidad, elemento.ObtenerPrecio());
+                    foreach (var comp in elemento.ObtenerDesgloseFisico(cantidad))
+                    {
+                        linea.ComponentesFisicos.Add(new PedidoDetalleComponente(
+                            comp.Sku, comp.Nombre, comp.Cantidad, comp.PrecioUnitario, comp.PesoUnitario
+                        ));
+                    }
+                    _pedidoBorrador.Lineas.Add(linea);
+                    RecalcularBorrador();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error al agregar elemento al carrito:\n\n{ex.Message}", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
