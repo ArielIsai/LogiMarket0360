@@ -185,32 +185,37 @@ public class UcDevoluciones : UserControl, IRecargableVista
         Controls.Add(pnlFormTop);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarPedidosEntregadosAsync();
     }
 
     public async Task CargarPedidosEntregadosAsync()
     {
-        var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
-        var entregados = pedidos.Where(p => p.Estado == EstadoPedidoEnum.Entregado).ToList();
+        try
+        {
+            var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
+            var entregados = pedidos.Where(p => p.Estado == EstadoPedidoEnum.Entregado).ToList();
 
-        _cmbPedidosEntregados.Items.Clear();
-        foreach (var p in entregados)
-        {
-            var yaDevuelto = await _devolucionRepo.GetByPedidoIdAsync(p.Id) != null;
-            var sufijo = yaDevuelto ? " (YA DEVUELTO)" : string.Empty;
-            _cmbPedidosEntregados.Items.Add($"{p.Codigo} - {p.Cliente?.Nombre}{sufijo}");
-        }
+            _cmbPedidosEntregados.Items.Clear();
+            foreach (var p in entregados)
+            {
+                var yaDevuelto = await _devolucionRepo.GetByPedidoIdAsync(p.Id) != null;
+                var sufijo = yaDevuelto ? " (YA DEVUELTO)" : string.Empty;
+                _cmbPedidosEntregados.Items.Add($"{p.Codigo} - {p.Cliente?.Nombre}{sufijo}");
+            }
 
-        if (_cmbPedidosEntregados.Items.Count > 0)
-        {
-            _cmbPedidosEntregados.SelectedIndex = 0;
+            if (_cmbPedidosEntregados.Items.Count > 0)
+            {
+                _cmbPedidosEntregados.SelectedIndex = 0;
+            }
+            else
+            {
+                _pedidoSeleccionado = null;
+                _lblReembolsoMonto.Text = "USD 0.00";
+                _btnConfirmarDev.Enabled = false;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _pedidoSeleccionado = null;
-            _lblReembolsoMonto.Text = "USD 0.00";
-            _btnConfirmarDev.Enabled = false;
+            System.Diagnostics.Debug.WriteLine($"[UcDevoluciones] Error al cargar: {ex.Message}");
         }
     }
 
@@ -242,35 +247,42 @@ public class UcDevoluciones : UserControl, IRecargableVista
     {
         if (_pedidoSeleccionado == null) return;
 
-        var motivo = _cmbMotivo.SelectedIndex == 0 ? MotivoDevolucionEnum.Defecto : MotivoDevolucionEnum.Arrepentimiento;
-        var dias = (int)_nudDias.Value;
-        var sinUso = _chkSinUso.Checked;
-
-        var cmd = new ProcesarDevolucionCommand(
-            _pedidoRepo,
-            _devolucionRepo,
-            _productoRepo,
-            _movimientoRepo,
-            _auditoriaRepo,
-            _unitOfWork,
-            _pedidoSeleccionado.Id,
-            motivo,
-            dias,
-            sinUso,
-            _sesionContext.UsuarioActual?.Username ?? "demo"
-        );
-
-        var res = await cmd.ExecuteAsync();
-        if (res.Exitoso)
+        try
         {
-            MessageBox.Show(res.Mensaje, "Devolución Exitosa");
-            _mediator.Notificar("DevolucionProcesada", _pedidoSeleccionado.Codigo);
-            _mediator.Notificar("InventarioActualizado");
-            await CargarPedidosEntregadosAsync();
+            var motivo = _cmbMotivo.SelectedIndex == 0 ? MotivoDevolucionEnum.Defecto : MotivoDevolucionEnum.Arrepentimiento;
+            var dias = (int)_nudDias.Value;
+            var sinUso = _chkSinUso.Checked;
+
+            var cmd = new ProcesarDevolucionCommand(
+                _pedidoRepo,
+                _devolucionRepo,
+                _productoRepo,
+                _movimientoRepo,
+                _auditoriaRepo,
+                _unitOfWork,
+                _pedidoSeleccionado.Id,
+                motivo,
+                dias,
+                sinUso,
+                _sesionContext.UsuarioActual?.Username ?? "demo"
+            );
+
+            var res = await cmd.ExecuteAsync();
+            if (res.Exitoso)
+            {
+                MessageBox.Show(res.Mensaje, "Devolución Exitosa", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _mediator.Notificar("DevolucionProcesada", _pedidoSeleccionado.Codigo);
+                _mediator.Notificar("InventarioActualizado");
+                await CargarPedidosEntregadosAsync();
+            }
+            else
+            {
+                MessageBox.Show(res.Mensaje, "Rechazo de Devolución", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            MessageBox.Show(res.Mensaje, "Rechazo de Devolución");
+            MessageBox.Show($"Ocurrió un error al procesar la devolución:\n\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

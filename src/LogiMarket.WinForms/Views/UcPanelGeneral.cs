@@ -184,38 +184,43 @@ public class UcPanelGeneral : UserControl, IRecargableVista
         Controls.Add(pnlKpis);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarDatosAsync();
     }
 
     public async Task CargarDatosAsync()
     {
-        var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
-        var productos = await _productoRepo.GetAllAsync();
-        var outboxPendientes = await _outboxRepo.GetPendientesAsync();
-        var devoluciones = await _devolucionRepo.GetAllAsync();
-
-        var activos = pedidos.Count(p => p.Estado != EstadoPedidoEnum.Entregado && p.Estado != EstadoPedidoEnum.Cancelado);
-        var porDespachar = pedidos.Count(p => p.Estado == EstadoPedidoEnum.Pagado);
-        var stockBajo = productos.Count(p => p.Stock < 5);
-        var ventasTotal = pedidos.Where(p => p.Estado is EstadoPedidoEnum.Pagado or EstadoPedidoEnum.Despachado or EstadoPedidoEnum.Entregado)
-                                .Sum(p => p.Total);
-
-        _lblPedidosActivos.Text = activos.ToString();
-        _lblPorDespachar.Text = porDespachar.ToString();
-        _lblStockBajo.Text = stockBajo.ToString();
-        _lblVentas.Text = $"USD {ventasTotal:F2}";
-
-        _dgvRecientes.Rows.Clear();
-        foreach (var p in pedidos.Take(10))
+        try
         {
-            _dgvRecientes.Rows.Add(p.Codigo, p.Cliente?.Nombre ?? "N/A", p.Estado.ToString(), $"USD {p.Total:F2}");
-        }
+            var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
+            var productos = await _productoRepo.GetAllAsync();
+            var outboxPendientes = await _outboxRepo.GetPendientesAsync();
+            var devoluciones = await _devolucionRepo.GetAllAsync();
 
-        _lstAlertas.Items.Clear();
-        _lstAlertas.Items.Add($"• {stockBajo} producto(s) con stock bajo");
-        _lstAlertas.Items.Add($"• {outboxPendientes.Count} evento(s) Outbox pendientes");
-        _lstAlertas.Items.Add($"• {devoluciones.Count} devolución(es) registrada(s)");
-        _lstAlertas.Items.Add($"• Sesión actual: {_metricas.PedidosConfirmados} ventas confirmadas");
+            var activos = pedidos.Count(p => p.Estado != EstadoPedidoEnum.Entregado && p.Estado != EstadoPedidoEnum.Cancelado);
+            var porDespachar = pedidos.Count(p => p.Estado == EstadoPedidoEnum.Pagado);
+            var stockBajo = productos.Count(p => p.Stock < 5);
+            var ventasTotal = pedidos.Where(p => p.Estado is EstadoPedidoEnum.Pagado or EstadoPedidoEnum.Despachado or EstadoPedidoEnum.Entregado)
+                                    .Sum(p => p.Total);
+
+            _lblPedidosActivos.Text = activos.ToString();
+            _lblPorDespachar.Text = porDespachar.ToString();
+            _lblStockBajo.Text = stockBajo.ToString();
+            _lblVentas.Text = $"USD {ventasTotal:F2}";
+
+            _dgvRecientes.Rows.Clear();
+            foreach (var p in pedidos.Take(10))
+            {
+                _dgvRecientes.Rows.Add(p.Codigo, p.Cliente?.Nombre ?? "N/A", p.Estado.ToString(), $"USD {p.Total:F2}");
+            }
+
+            _lstAlertas.Items.Clear();
+            _lstAlertas.Items.Add($"• {stockBajo} producto(s) con stock bajo");
+            _lstAlertas.Items.Add($"• {outboxPendientes.Count} evento(s) Outbox pendientes");
+            _lstAlertas.Items.Add($"• {devoluciones.Count} devolución(es) registrada(s)");
+            _lstAlertas.Items.Add($"• Sesión actual: {_metricas.PedidosConfirmados} ventas confirmadas");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcPanelGeneral] Error al cargar: {ex.Message}");
+        }
     }
 }

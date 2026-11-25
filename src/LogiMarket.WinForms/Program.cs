@@ -22,6 +22,28 @@ static class Program
     [STAThread]
     static void Main()
     {
+        // 0. Captura global de excepciones no controladas para evitar el diálogo crudo de .NET
+        System.Windows.Forms.Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        System.Windows.Forms.Application.ThreadException += (s, e) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"[ThreadException] {e.Exception}");
+            MessageBox.Show(
+                $"Ha ocurrido una situación no controlada:\n\n{e.Exception.Message}",
+                "LogiMarket 360 - Notificación del Sistema",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            var ex = e.ExceptionObject as Exception;
+            System.Diagnostics.Debug.WriteLine($"[UnhandledException] {ex}");
+            MessageBox.Show(
+                $"Error crítico no recuperable:\n\n{ex?.Message ?? "Error desconocido"}",
+                "LogiMarket 360 - Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        };
+
         ApplicationConfiguration.Initialize();
 
         var services = new ServiceCollection();

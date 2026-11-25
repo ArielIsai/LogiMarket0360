@@ -128,27 +128,32 @@ public class UcPedidosHistorial : UserControl, IRecargableVista
         Controls.Add(pnlToolbar);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarPedidosAsync();
     }
 
     public async Task CargarPedidosAsync(string? filtro = null)
     {
-        var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
-        _dgvPedidos.Rows.Clear();
-
-        foreach (var p in pedidos)
+        try
         {
-            if (string.IsNullOrWhiteSpace(filtro) || p.Codigo.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+            var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
+            _dgvPedidos.Rows.Clear();
+
+            foreach (var p in pedidos)
             {
-                _dgvPedidos.Rows.Add(
-                    p.Codigo,
-                    p.Cliente?.Nombre ?? "N/A",
-                    p.Estado.ToString(),
-                    $"USD {p.Total:F2}",
-                    p.FechaCreacion.ToString("yyyy-MM-dd HH:mm")
-                );
+                if (string.IsNullOrWhiteSpace(filtro) || p.Codigo.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+                {
+                    _dgvPedidos.Rows.Add(
+                        p.Codigo,
+                        p.Cliente?.Nombre ?? "N/A",
+                        p.Estado.ToString(),
+                        $"USD {p.Total:F2}",
+                        p.FechaCreacion.ToString("yyyy-MM-dd HH:mm")
+                    );
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcPedidosHistorial] Error al cargar: {ex.Message}");
         }
     }
 

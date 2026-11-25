@@ -166,39 +166,44 @@ public class UcInventario : UserControl, IRecargableVista
         Controls.Add(grpMovs);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarInventarioYMovimientosAsync();
     }
 
     public async Task CargarInventarioYMovimientosAsync()
     {
-        var productos = await _productoRepo.GetAllAsync();
-        _dgvInventario.Rows.Clear();
-        _cmbSku.Items.Clear();
-
-        foreach (var p in productos)
+        try
         {
-            var alerta = p.Stock < 5 ? "BAJO" : "OK";
-            var rowIdx = _dgvInventario.Rows.Add(p.Sku, p.Nombre, p.Stock.ToString(), alerta);
+            var productos = await _productoRepo.GetAllAsync();
+            _dgvInventario.Rows.Clear();
+            _cmbSku.Items.Clear();
 
-            if (p.Stock < 5)
+            foreach (var p in productos)
             {
-                _dgvInventario.Rows[rowIdx].DefaultCellStyle.ForeColor = Color.Crimson;
-                _dgvInventario.Rows[rowIdx].DefaultCellStyle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+                var alerta = p.Stock < 5 ? "BAJO" : "OK";
+                var rowIdx = _dgvInventario.Rows.Add(p.Sku, p.Nombre, p.Stock.ToString(), alerta);
+
+                if (p.Stock < 5)
+                {
+                    _dgvInventario.Rows[rowIdx].DefaultCellStyle.ForeColor = Color.Crimson;
+                    _dgvInventario.Rows[rowIdx].DefaultCellStyle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+                }
+
+                _cmbSku.Items.Add($"{p.Sku} - {p.Nombre} (Stock: {p.Stock})");
             }
 
-            _cmbSku.Items.Add($"{p.Sku} - {p.Nombre} (Stock: {p.Stock})");
+            if (_cmbSku.Items.Count > 0) _cmbSku.SelectedIndex = 0;
+
+            // Movimientos recientes
+            var movs = await _movimientoRepo.GetAllAsync();
+            _lstMovimientos.Items.Clear();
+            foreach (var m in movs.Take(8))
+            {
+                var signo = m.TipoMovimiento == TipoMovimientoInventario.Venta ? "-" : "+";
+                _lstMovimientos.Items.Add($"[{m.Fecha:HH:mm:ss}] {m.Referencia,-15} | SKU: {m.ProductoSku} {signo}{m.Cantidad} (Stock: {m.StockPrevio} ➔ {m.StockNuevo}) | {m.Motivo}");
+            }
         }
-
-        if (_cmbSku.Items.Count > 0) _cmbSku.SelectedIndex = 0;
-
-        // Movimientos recientes
-        var movs = await _movimientoRepo.GetAllAsync();
-        _lstMovimientos.Items.Clear();
-        foreach (var m in movs.Take(8))
+        catch (Exception ex)
         {
-            var signo = m.TipoMovimiento == TipoMovimientoInventario.Venta ? "-" : "+";
-            _lstMovimientos.Items.Add($"[{m.Fecha:HH:mm:ss}] {m.Referencia,-15} | SKU: {m.ProductoSku} {signo}{m.Cantidad} (Stock: {m.StockPrevio} ➔ {m.StockNuevo}) | {m.Motivo}");
+            System.Diagnostics.Debug.WriteLine($"[UcInventario] Error al cargar: {ex.Message}");
         }
     }
 
@@ -209,36 +214,43 @@ public class UcInventario : UserControl, IRecargableVista
         var delta = (int)_nudCantidadAjuste.Value;
         if (delta == 0) return;
 
-        var prod = await _productoRepo.GetBySkuAsync(sku);
-        if (prod == null) return;
-
-        if (prod.Stock + delta < 0)
+        try
         {
-            MessageBox.Show($"El ajuste dejaría el stock en negativo ({prod.Stock + delta}). Operación denegada.", "Validación");
-            return;
+            var prod = await _productoRepo.GetBySkuAsync(sku);
+            if (prod == null) return;
+
+            if (prod.Stock + delta < 0)
+            {
+                MessageBox.Show($"El ajuste dejaría el stock en negativo ({prod.Stock + delta}). Operación denegada.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var stockPrevio = prod.Stock;
+            if (delta > 0) prod.ReintegrarStock(delta);
+            else prod.DescontarStock(-delta);
+
+            await _productoRepo.UpdateAsync(prod);
+
+            var mov = new MovimientoInventario(
+                prod.Sku,
+                TipoMovimientoInventario.Ajuste,
+                Math.Abs(delta),
+                stockPrevio,
+                prod.Stock,
+                $"AJUSTE-{DateTime.UtcNow:mmss}",
+                _txtMotivo.Text.Trim()
+            );
+            await _movimientoRepo.AddAsync(mov);
+            await _unitOfWork.CommitAsync();
+
+            MessageBox.Show($"Ajuste registrado para {prod.Sku}. Stock anterior: {stockPrevio}, nuevo: {prod.Stock}.", "Inventario Actualizado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _mediator.Notificar("InventarioActualizado");
+            await CargarInventarioYMovimientosAsync();
         }
-
-        var stockPrevio = prod.Stock;
-        if (delta > 0) prod.ReintegrarStock(delta);
-        else prod.DescontarStock(-delta);
-
-        await _productoRepo.UpdateAsync(prod);
-
-        var mov = new MovimientoInventario(
-            prod.Sku,
-            TipoMovimientoInventario.Ajuste,
-            Math.Abs(delta),
-            stockPrevio,
-            prod.Stock,
-            $"AJUSTE-{DateTime.UtcNow:mmss}",
-            _txtMotivo.Text.Trim()
-        );
-        await _movimientoRepo.AddAsync(mov);
-        await _unitOfWork.CommitAsync();
-
-        MessageBox.Show($"Ajuste registrado para {prod.Sku}. Stock anterior: {stockPrevio}, nuevo: {prod.Stock}.", "Inventario Actualizado");
-        _mediator.Notificar("InventarioActualizado");
-        await CargarInventarioYMovimientosAsync();
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error al registrar ajuste de inventario:\n\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void EjecutarDemoFlyweight()

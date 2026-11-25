@@ -71,8 +71,11 @@ public partial class Form1 : Form
         {
             if (evento == "SesionIniciada")
             {
-                ActualizarEstadoSesion();
-                CambiarVista(_ucPanelGeneral, "Panel general");
+                // Garantizar ejecución en hilo UI aunque el evento llegue desde un BackgroundTask
+                if (IsHandleCreated && InvokeRequired)
+                    BeginInvoke(() => { ActualizarEstadoSesion(); CambiarVista(_ucPanelGeneral, "Panel general"); });
+                else
+                { ActualizarEstadoSesion(); CambiarVista(_ucPanelGeneral, "Panel general"); }
             }
         });
     }
@@ -219,7 +222,21 @@ public partial class Form1 : Form
 
         if (vista is IRecargableVista recargable)
         {
-            _ = recargable.RecargarAsync();
+            // Diferir la carga hasta que el handle del control esté creado.
+            // Controls.Add() no garantiza IsHandleCreated de forma síncrona.
+            if (vista.IsHandleCreated)
+            {
+                _ = recargable.RecargarAsync();
+            }
+            else
+            {
+                void OnHandleCreated(object? s, EventArgs e)
+                {
+                    vista.HandleCreated -= OnHandleCreated;
+                    _ = recargable.RecargarAsync();
+                }
+                vista.HandleCreated += OnHandleCreated;
+            }
         }
 
         foreach (var (k, btn) in _navButtons)

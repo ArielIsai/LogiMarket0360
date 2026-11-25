@@ -182,34 +182,39 @@ public class UcCobro : UserControl, IRecargableVista
         Controls.Add(pnlSelector);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarPedidosParaCobroAsync();
     }
 
     public async Task CargarPedidosParaCobroAsync()
     {
-        var rol = _sesionContext.RolActual.ToString().ToUpperInvariant();
-        _lblBadgeRol.Text = $"ROL ACTUAL: {rol}";
-
-        var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
-        var validados = pedidos.Where(p => p.Estado == EstadoPedidoEnum.Validado).ToList();
-
-        _cmbPedidosValidados.Items.Clear();
-        foreach (var p in validados)
+        try
         {
-            _cmbPedidosValidados.Items.Add($"{p.Codigo} - {p.Cliente?.Nombre} (USD {p.Total:F2})");
+            var rol = _sesionContext.RolActual.ToString().ToUpperInvariant();
+            _lblBadgeRol.Text = $"ROL ACTUAL: {rol}";
+
+            var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
+            var validados = pedidos.Where(p => p.Estado == EstadoPedidoEnum.Validado).ToList();
+
+            _cmbPedidosValidados.Items.Clear();
+            foreach (var p in validados)
+            {
+                _cmbPedidosValidados.Items.Add($"{p.Codigo} - {p.Cliente?.Nombre} (USD {p.Total:F2})");
+            }
+
+            if (_cmbPedidosValidados.Items.Count > 0)
+            {
+                _cmbPedidosValidados.SelectedIndex = 0;
+                _btnConfirmarCobro.Enabled = true;
+            }
+            else
+            {
+                _pedidoSeleccionado = null;
+                LimpiarResumen();
+                _btnConfirmarCobro.Enabled = false;
+            }
         }
-
-        if (_cmbPedidosValidados.Items.Count > 0)
+        catch (Exception ex)
         {
-            _cmbPedidosValidados.SelectedIndex = 0;
-            _btnConfirmarCobro.Enabled = true;
-        }
-        else
-        {
-            _pedidoSeleccionado = null;
-            LimpiarResumen();
-            _btnConfirmarCobro.Enabled = false;
+            System.Diagnostics.Debug.WriteLine($"[UcCobro] Error al cargar: {ex.Message}");
         }
     }
 
@@ -246,33 +251,43 @@ public class UcCobro : UserControl, IRecargableVista
     {
         if (_pedidoSeleccionado == null) return;
 
-        _btnConfirmarCobro.Enabled = false;
-        _lblResultado.Text = "Procesando cobro mediante pasarela...";
-
-        var rol = _sesionContext.RolActual.ToString();
-        var prov = _cmbProveedor.SelectedIndex == 0 ? "Legacy" : "V2";
-
-        var res = await _facade.ConfirmarPedidoAsync(
-            _pedidoSeleccionado.Id,
-            _pedidoSeleccionado.IdempotencyKey,
-            rol,
-            prov
-        );
-
-        if (res.Exitoso)
+        try
         {
-            _lblResultado.Text = $"✅ {res.Mensaje}\nTransacción: {res.CodigoTransaccion}\nMonto cobrado: USD {res.TotalPagado:F2}";
-            _lblResultado.ForeColor = Color.FromArgb(21, 128, 61);
-            MessageBox.Show($"Cobro exitoso para {_pedidoSeleccionado.Codigo}.\nTransacción: {res.CodigoTransaccion}", "Cobro Confirmado");
+            _btnConfirmarCobro.Enabled = false;
+            _lblResultado.Text = "Procesando cobro mediante pasarela...";
 
-            _mediator.Notificar("PedidoConfirmado", _pedidoSeleccionado.Codigo);
-            await CargarPedidosParaCobroAsync();
+            var rol = _sesionContext.RolActual.ToString();
+            var prov = _cmbProveedor.SelectedIndex == 0 ? "Legacy" : "V2";
+
+            var res = await _facade.ConfirmarPedidoAsync(
+                _pedidoSeleccionado.Id,
+                _pedidoSeleccionado.IdempotencyKey,
+                rol,
+                prov
+            );
+
+            if (res.Exitoso)
+            {
+                _lblResultado.Text = $"✅ {res.Mensaje}\nTransacción: {res.CodigoTransaccion}\nMonto cobrado: USD {res.TotalPagado:F2}";
+                _lblResultado.ForeColor = Color.FromArgb(21, 128, 61);
+                MessageBox.Show($"Cobro exitoso para {_pedidoSeleccionado.Codigo}.\nTransacción: {res.CodigoTransaccion}", "Cobro Confirmado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                _mediator.Notificar("PedidoConfirmado", _pedidoSeleccionado.Codigo);
+                await CargarPedidosParaCobroAsync();
+            }
+            else
+            {
+                _lblResultado.Text = $"❌ {res.Mensaje}";
+                _lblResultado.ForeColor = Color.Crimson;
+                MessageBox.Show(res.Mensaje, "Error en Cobro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _btnConfirmarCobro.Enabled = true;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _lblResultado.Text = $"❌ {res.Mensaje}";
+            _lblResultado.Text = $"❌ Error inesperado: {ex.Message}";
             _lblResultado.ForeColor = Color.Crimson;
-            MessageBox.Show(res.Mensaje, "Error en Cobro");
+            MessageBox.Show($"Ocurrió un error al procesar el cobro:\n\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             _btnConfirmarCobro.Enabled = true;
         }
     }

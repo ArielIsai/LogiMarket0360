@@ -168,29 +168,37 @@ public class UcReportes : UserControl, IRecargableVista
         Controls.Add(pnlInterpreter);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) =>
-        {
-            await CargarCombosReporteAsync();
-            await EjecutarConsultaInterpreterAsync();
-        };
     }
 
     public async Task RecargarAsync()
     {
-        await CargarCombosReporteAsync();
-        await EjecutarConsultaInterpreterAsync();
+        try
+        {
+            await CargarCombosReporteAsync();
+            await EjecutarConsultaInterpreterAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcReportes] Error al recargar: {ex.Message}");
+        }
     }
 
     private async Task CargarCombosReporteAsync()
     {
-        var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
-        _cmbPedidoSeleccionado.Items.Clear();
-        foreach (var p in pedidos)
+        try
         {
-            _cmbPedidoSeleccionado.Items.Add($"{p.Codigo} ({p.Estado}) - USD {p.Total:F2}");
+            var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
+            _cmbPedidoSeleccionado.Items.Clear();
+            foreach (var p in pedidos)
+            {
+                _cmbPedidoSeleccionado.Items.Add($"{p.Codigo} ({p.Estado}) - USD {p.Total:F2}");
+            }
+            if (_cmbPedidoSeleccionado.Items.Count > 0) _cmbPedidoSeleccionado.SelectedIndex = 0;
         }
-        if (_cmbPedidoSeleccionado.Items.Count > 0) _cmbPedidoSeleccionado.SelectedIndex = 0;
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcReportes] Error en combos: {ex.Message}");
+        }
     }
 
     private async Task EjecutarConsultaInterpreterAsync()

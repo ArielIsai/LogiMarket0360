@@ -129,19 +129,28 @@ public class UcAcceso : UserControl
 
     private async Task EjecutarLoginAsync()
     {
-        _lblError.Text = string.Empty;
-        _btnLogin.Enabled = false;
-
-        var res = await _authService.IniciarSesionAsync(_txtUser.Text, _txtPass.Text);
-        if (res.Exitoso)
+        try
         {
-            _mediator.Notificar("SesionIniciada", res.Datos);
-        }
-        else
-        {
-            _lblError.Text = res.Mensaje;
-        }
+            _lblError.Text = string.Empty;
+            _btnLogin.Enabled = false;
 
-        _btnLogin.Enabled = true;
+            var res = await _authService.IniciarSesionAsync(_txtUser.Text, _txtPass.Text);
+            if (res.Exitoso)
+            {
+                _mediator.Notificar("SesionIniciada", res.Datos);
+            }
+            else
+            {
+                _lblError.Text = res.Mensaje;
+            }
+        }
+        catch (Exception ex)
+        {
+            _lblError.Text = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _btnLogin.Enabled = true;
+        }
     }
 }

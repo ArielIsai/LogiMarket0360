@@ -134,24 +134,29 @@ public class UcClientes : UserControl, IRecargableVista
         Controls.Add(pnlToolbar);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarClientesAsync();
     }
 
     public async Task CargarClientesAsync(string? filtro = null)
     {
-        var clientes = await _clienteRepo.GetAllAsync();
-        _dgvClientes.Rows.Clear();
-
-        foreach (var c in clientes)
+        try
         {
-            if (string.IsNullOrWhiteSpace(filtro) ||
-                c.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
-                c.Identificacion.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
-                c.Codigo.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+            var clientes = await _clienteRepo.GetAllAsync();
+            _dgvClientes.Rows.Clear();
+
+            foreach (var c in clientes)
             {
-                _dgvClientes.Rows.Add(c.Codigo, c.Nombre, c.Categoria.ToString(), c.Contacto);
+                if (string.IsNullOrWhiteSpace(filtro) ||
+                    c.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                    c.Identificacion.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                    c.Codigo.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+                {
+                    _dgvClientes.Rows.Add(c.Codigo, c.Nombre, c.Categoria.ToString(), c.Contacto);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcClientes] Error al cargar: {ex.Message}");
         }
     }
 

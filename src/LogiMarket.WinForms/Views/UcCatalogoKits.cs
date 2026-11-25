@@ -164,42 +164,43 @@ public class UcCatalogoKits : UserControl, IRecargableVista
         Controls.Add(pnlToolbar);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) =>
-        {
-            await _catalogoService.InicializarKitsOficialesAsync();
-            await CargarCatalogoAsync();
-        };
     }
 
     public async Task CargarCatalogoAsync(string? filtro = null)
     {
-        var productos = await _productoRepo.GetAllAsync();
-        var kits = _catalogoService.ListarKits();
-
-        _dgvCatalogo.Rows.Clear();
-
-        // 1. Mostrar productos simples
-        foreach (var p in productos)
+        try
         {
-            if (string.IsNullOrWhiteSpace(filtro) ||
-                p.Sku.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
-                p.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
-                p.Categoria.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+            var productos = await _productoRepo.GetAllAsync();
+            var kits = _catalogoService.ListarKits();
+
+            _dgvCatalogo.Rows.Clear();
+
+            // 1. Mostrar productos simples
+            foreach (var p in productos)
             {
-                _dgvCatalogo.Rows.Add(p.Sku, p.Nombre, $"USD {p.Precio:F2}", p.Stock.ToString(), $"{p.PesoKg:F2} kg");
+                if (string.IsNullOrWhiteSpace(filtro) ||
+                    p.Sku.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                    p.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                    p.Categoria.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+                {
+                    _dgvCatalogo.Rows.Add(p.Sku, p.Nombre, $"USD {p.Precio:F2}", p.Stock.ToString(), $"{p.PesoKg:F2} kg");
+                }
+            }
+
+            // 2. Mostrar kits compuestos
+            foreach (var k in kits)
+            {
+                if (string.IsNullOrWhiteSpace(filtro) ||
+                    k.Sku.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                    k.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+                {
+                    _dgvCatalogo.Rows.Add(k.Sku, $"{k.Nombre} (KIT)", $"USD {k.ObtenerPrecio():F2}", "—", $"{k.ObtenerPeso():F2} kg");
+                }
             }
         }
-
-        // 2. Mostrar kits compuestos
-        foreach (var k in kits)
+        catch (Exception ex)
         {
-            if (string.IsNullOrWhiteSpace(filtro) ||
-                k.Sku.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
-                k.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase))
-            {
-                _dgvCatalogo.Rows.Add(k.Sku, $"{k.Nombre} (KIT)", $"USD {k.ObtenerPrecio():F2}", "—", $"{k.ObtenerPeso():F2} kg");
-            }
+            System.Diagnostics.Debug.WriteLine($"[UcCatalogoKits] Error al cargar: {ex.Message}");
         }
     }
 

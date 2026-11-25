@@ -191,21 +191,26 @@ public class UcCarritoBorrador : UserControl, IRecargableVista
         Controls.Add(pnlTop);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarClientesComboAsync();
     }
 
     public Task RecargarAsync() => CargarClientesComboAsync();
 
     private async Task CargarClientesComboAsync()
     {
-        var clientes = await _clienteRepo.GetAllAsync();
-        _cmbCliente.Items.Clear();
-        foreach (var c in clientes)
+        try
         {
-            _cmbCliente.Items.Add($"{c.Codigo} - {c.Nombre} ({c.Categoria})");
+            var clientes = await _clienteRepo.GetAllAsync();
+            _cmbCliente.Items.Clear();
+            foreach (var c in clientes)
+            {
+                _cmbCliente.Items.Add($"{c.Codigo} - {c.Nombre} ({c.Categoria})");
+            }
+            if (_cmbCliente.Items.Count > 0) _cmbCliente.SelectedIndex = 0;
         }
-        if (_cmbCliente.Items.Count > 0) _cmbCliente.SelectedIndex = 0;
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcCarritoBorrador] Error al cargar clientes: {ex.Message}");
+        }
     }
 
     private void CrearNuevoBorrador()
@@ -356,46 +361,57 @@ public class UcCarritoBorrador : UserControl, IRecargableVista
 
     private async Task ValidarYCrearPedidoAsync()
     {
-        if (_pedidoBorrador.Lineas.Count == 0)
+        try
         {
-            MessageBox.Show("El borrador no tiene líneas de productos o kits.", "Validación");
-            return;
-        }
+            if (_pedidoBorrador.Lineas.Count == 0)
+            {
+                MessageBox.Show("El borrador no tiene líneas de productos o kits.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-        if (_cmbCliente.SelectedItem == null)
+            if (_cmbCliente.SelectedItem == null)
+            {
+                MessageBox.Show("Debe seleccionar un cliente.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var codigoCliente = _cmbCliente.SelectedItem.ToString()!.Split(' ')[0];
+            var cliente = await _clienteRepo.GetByCodigoAsync(codigoCliente);
+            if (cliente == null)
+            {
+                MessageBox.Show("Cliente no encontrado en el sistema.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var nuevoCodigo = $"PED-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            var pedido = new PedidoBuilder()
+                .ConCodigo(nuevoCodigo)
+                .ConCliente(cliente)
+                .ConEntrega(_pedidoBorrador.TipoEntrega, _pedidoBorrador.TarifaEnvio);
+
+            foreach (var linea in _pedidoBorrador.Lineas)
+            {
+                var elemento = await _catalogoService.ObtenerElementoCatalogoAsync(linea.Sku);
+                if (elemento != null)
+                    pedido.AgregarLinea(elemento, linea.Cantidad);
+            }
+
+            var pedidoConstruido = pedido.Build();
+            pedidoConstruido.Validar(); // Transiciona a VALIDADO
+
+            await _pedidoRepo.AddAsync(pedidoConstruido);
+            await _unitOfWork.CommitAsync();
+
+            _careTaker.BloquearYLimpiar();
+            CrearNuevoBorrador();
+            RecalcularBorrador();
+
+            MessageBox.Show($"Pedido {pedidoConstruido.Codigo} registrado en estado VALIDADO por un total de USD {pedidoConstruido.Total:F2}.\nPuede proceder al cobro.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _mediator.Notificar("PedidoValidado", pedidoConstruido.Codigo);
+        }
+        catch (Exception ex)
         {
-            MessageBox.Show("Debe seleccionar un cliente.", "Validación");
-            return;
+            MessageBox.Show($"No se pudo validar y registrar el pedido:\n\n{ex.Message}", "Error en Pedido", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-
-        var codigoCliente = _cmbCliente.SelectedItem.ToString()!.Split(' ')[0];
-        var cliente = await _clienteRepo.GetByCodigoAsync(codigoCliente);
-        if (cliente == null) return;
-
-        var nuevoCodigo = $"PED-{DateTime.UtcNow:yyyyMMddHHmmss}";
-        var pedido = new PedidoBuilder()
-            .ConCodigo(nuevoCodigo)
-            .ConCliente(cliente)
-            .ConEntrega(_pedidoBorrador.TipoEntrega, _pedidoBorrador.TarifaEnvio);
-
-        foreach (var linea in _pedidoBorrador.Lineas)
-        {
-            var elemento = await _catalogoService.ObtenerElementoCatalogoAsync(linea.Sku);
-            if (elemento != null)
-                pedido.AgregarLinea(elemento, linea.Cantidad);
-        }
-
-        var pedidoConstruido = pedido.Build();
-        pedidoConstruido.Validar(); // Transiciona a VALIDADO
-
-        await _pedidoRepo.AddAsync(pedidoConstruido);
-        await _unitOfWork.CommitAsync();
-
-        _careTaker.BloquearYLimpiar();
-        CrearNuevoBorrador();
-        RecalcularBorrador();
-
-        MessageBox.Show($"Pedido {pedidoConstruido.Codigo} registrado en estado VALIDADO por un total de USD {pedidoConstruido.Total:F2}.\nPuede proceder al cobro.", "Éxito");
-        _mediator.Notificar("PedidoValidado", pedidoConstruido.Codigo);
     }
 }

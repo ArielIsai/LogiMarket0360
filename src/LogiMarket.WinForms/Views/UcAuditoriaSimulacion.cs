@@ -167,22 +167,27 @@ public class UcAuditoriaSimulacion : UserControl, IRecargableVista
         Controls.Add(split);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarAuditoriaYOutboxAsync();
     }
 
     public async Task CargarAuditoriaYOutboxAsync()
     {
-        var logs = await _auditoriaRepo.GetUltimosAsync(50);
-        _dgvAuditoria.Rows.Clear();
-
-        foreach (var l in logs)
+        try
         {
-            _dgvAuditoria.Rows.Add(l.Fecha.ToString("HH:mm:ss"), l.Usuario, l.Accion, l.Detalle);
-        }
+            var logs = await _auditoriaRepo.GetUltimosAsync(50);
+            _dgvAuditoria.Rows.Clear();
 
-        var pendientes = await _outboxRepo.GetPendientesAsync();
-        _lblStatusOutbox.Text = $"Eventos en tabla EventoOutbox:\n• Pendientes: {pendientes.Count}\n• Procesados con éxito: {(await _outboxRepo.GetAllAsync()).Count - pendientes.Count}";
+            foreach (var l in logs)
+            {
+                _dgvAuditoria.Rows.Add(l.Fecha.ToString("HH:mm:ss"), l.Usuario, l.Accion, l.Detalle);
+            }
+
+            var pendientes = await _outboxRepo.GetPendientesAsync();
+            _lblStatusOutbox.Text = $"Eventos en tabla EventoOutbox:\n• Pendientes: {pendientes.Count}\n• Procesados con éxito: {(await _outboxRepo.GetAllAsync()).Count - pendientes.Count}";
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcAuditoriaSimulacion] Error al cargar: {ex.Message}");
+        }
     }
 
     private async Task ProcesarOutboxAsync()

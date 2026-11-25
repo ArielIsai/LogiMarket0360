@@ -151,49 +151,61 @@ public class UcDespacho : UserControl, IRecargableVista
         Controls.Add(split);
         Controls.Add(lblSub);
         Controls.Add(lblHeader);
-
-        Load += async (s, e) => await CargarLogisticaAsync();
     }
 
     public async Task CargarLogisticaAsync()
     {
-        var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
-        var logisticos = pedidos.Where(p => p.Estado is EstadoPedidoEnum.Pagado or EstadoPedidoEnum.Despachado).ToList();
-
-        _dgvLogistica.Rows.Clear();
-        foreach (var p in logisticos)
+        try
         {
-            _dgvLogistica.Rows.Add(p.Codigo, p.Estado.ToString(), p.TipoEntrega.ToString(), string.IsNullOrEmpty(p.GuiaDespacho) ? "Pendiente" : p.GuiaDespacho);
+            var pedidos = await _pedidoRepo.GetAllWithDetailsAsync();
+            var logisticos = pedidos.Where(p => p.Estado is EstadoPedidoEnum.Pagado or EstadoPedidoEnum.Despachado).ToList();
+
+            _dgvLogistica.Rows.Clear();
+            foreach (var p in logisticos)
+            {
+                _dgvLogistica.Rows.Add(p.Codigo, p.Estado.ToString(), p.TipoEntrega.ToString(), string.IsNullOrEmpty(p.GuiaDespacho) ? "Pendiente" : p.GuiaDespacho);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcDespacho] Error al cargar: {ex.Message}");
         }
     }
 
     private async void SeleccionarPedido()
     {
-        if (_dgvLogistica.SelectedRows.Count == 0) return;
-        var codigo = _dgvLogistica.SelectedRows[0].Cells["Codigo"].Value?.ToString();
-        if (string.IsNullOrEmpty(codigo)) return;
-
-        _pedidoSeleccionado = await _pedidoRepo.GetByCodigoAsync(codigo);
-        if (_pedidoSeleccionado != null)
+        try
         {
-            _txtPedido.Text = _pedidoSeleccionado.Codigo;
+            if (_dgvLogistica.SelectedRows.Count == 0) return;
+            var codigo = _dgvLogistica.SelectedRows[0].Cells["Codigo"].Value?.ToString();
+            if (string.IsNullOrEmpty(codigo)) return;
 
-            if (string.IsNullOrEmpty(_pedidoSeleccionado.GuiaDespacho))
+            _pedidoSeleccionado = await _pedidoRepo.GetByCodigoAsync(codigo);
+            if (_pedidoSeleccionado != null)
             {
-                // Generar guía con Abstract Factory
-                ILogisticaAbstractFactory factory = _pedidoSeleccionado.TipoEntrega == TipoEntregaEnum.Expres
-                    ? new LogisticaExpresFactory()
-                    : new LogisticaEstandarFactory();
+                _txtPedido.Text = _pedidoSeleccionado.Codigo;
 
-                _txtGuia.Text = factory.CrearConstructorGuia().GenerarNumeroGuia(_pedidoSeleccionado.Codigo);
-            }
-            else
-            {
-                _txtGuia.Text = _pedidoSeleccionado.GuiaDespacho;
-            }
+                if (string.IsNullOrEmpty(_pedidoSeleccionado.GuiaDespacho))
+                {
+                    // Generar guía con Abstract Factory
+                    ILogisticaAbstractFactory factory = _pedidoSeleccionado.TipoEntrega == TipoEntregaEnum.Expres
+                        ? new LogisticaExpresFactory()
+                        : new LogisticaEstandarFactory();
 
-            _btnDespachar.Enabled = _pedidoSeleccionado.Estado == EstadoPedidoEnum.Pagado;
-            _btnEntregar.Enabled = _pedidoSeleccionado.Estado == EstadoPedidoEnum.Despachado;
+                    _txtGuia.Text = factory.CrearConstructorGuia().GenerarNumeroGuia(_pedidoSeleccionado.Codigo);
+                }
+                else
+                {
+                    _txtGuia.Text = _pedidoSeleccionado.GuiaDespacho;
+                }
+
+                _btnDespachar.Enabled = _pedidoSeleccionado.Estado == EstadoPedidoEnum.Pagado;
+                _btnEntregar.Enabled = _pedidoSeleccionado.Estado == EstadoPedidoEnum.Despachado;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UcDespacho] Error al seleccionar: {ex.Message}");
         }
     }
 
@@ -202,30 +214,37 @@ public class UcDespacho : UserControl, IRecargableVista
         if (_pedidoSeleccionado == null) return;
         if (string.IsNullOrWhiteSpace(_txtGuia.Text))
         {
-            MessageBox.Show("Debe ingresar o generar un número de guía.", "Validación");
+            MessageBox.Show("Debe ingresar o generar un número de guía.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        var cmd = new DespacharPedidoCommand(
-            _pedidoRepo,
-            _unitOfWork,
-            _auditoriaRepo,
-            _pedidoSeleccionado.Id,
-            _txtGuia.Text.Trim(),
-            _sesionContext.UsuarioActual?.Username ?? "demo",
-            _sesionContext.RolActual
-        );
+        try
+        {
+            var cmd = new DespacharPedidoCommand(
+                _pedidoRepo,
+                _unitOfWork,
+                _auditoriaRepo,
+                _pedidoSeleccionado.Id,
+                _txtGuia.Text.Trim(),
+                _sesionContext.UsuarioActual?.Username ?? "demo",
+                _sesionContext.RolActual
+            );
 
-        var res = await cmd.ExecuteAsync();
-        if (res.Exitoso)
-        {
-            MessageBox.Show(res.Mensaje, "Despacho Confirmado");
-            _mediator.Notificar("PedidoDespachado", _pedidoSeleccionado.Codigo);
-            await CargarLogisticaAsync();
+            var res = await cmd.ExecuteAsync();
+            if (res.Exitoso)
+            {
+                MessageBox.Show(res.Mensaje, "Despacho Confirmado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _mediator.Notificar("PedidoDespachado", _pedidoSeleccionado.Codigo);
+                await CargarLogisticaAsync();
+            }
+            else
+            {
+                MessageBox.Show(res.Mensaje, "Error en Despacho", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            MessageBox.Show(res.Mensaje, "Error en Despacho");
+            MessageBox.Show($"Error al procesar despacho:\n\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
