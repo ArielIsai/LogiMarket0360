@@ -10,7 +10,7 @@ namespace LogiMarket.Application.Services;
 public class CatalogoService
 {
     private readonly IProductoRepository _productoRepo;
-    private readonly Dictionary<string, KitCompuesto> _kitsEnMemoria = new();
+    private static readonly Dictionary<string, KitCompuesto> _kitsEnMemoria = new();
 
     public CatalogoService(IProductoRepository productoRepo)
     {
@@ -28,6 +28,11 @@ public class CatalogoService
     public async Task<IElementoCatalogo?> ObtenerElementoCatalogoAsync(string sku)
     {
         sku = sku.Trim().ToUpperInvariant();
+
+        if (_kitsEnMemoria.Count == 0)
+        {
+            await InicializarKitsOficialesAsync();
+        }
 
         // Si es un kit registrado
         if (_kitsEnMemoria.TryGetValue(sku, out var kit))
@@ -48,6 +53,10 @@ public class CatalogoService
 
     public IReadOnlyList<KitCompuesto> ListarKits()
     {
+        if (_kitsEnMemoria.Count == 0)
+        {
+            InicializarKitsOficialesAsync().GetAwaiter().GetResult();
+        }
         return _kitsEnMemoria.Values.ToList();
     }
 
