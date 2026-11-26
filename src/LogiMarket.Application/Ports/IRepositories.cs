@@ -21,6 +21,7 @@ public interface IProductoRepository : IRepository<Producto>
 public interface IClienteRepository : IRepository<Cliente>
 {
     Task<Cliente?> GetByCodigoAsync(string codigo);
+    Task<Cliente?> GetByIdentificacionAsync(string identificacion);
     Task<IReadOnlyList<Cliente>> BuscarAsync(string criterio);
 }
 

@@ -42,8 +42,10 @@ public class LogiMarketDbContext : DbContext
         {
             b.HasKey(c => c.Id);
             b.HasIndex(c => c.Codigo).IsUnique();
+            b.HasIndex(c => c.Identificacion).IsUnique();
             b.Property(c => c.Codigo).HasMaxLength(20).IsRequired();
             b.Property(c => c.Nombre).HasMaxLength(150).IsRequired();
+            b.Property(c => c.Identificacion).HasMaxLength(30).IsRequired();
         });
 
         // Producto

@@ -73,6 +73,8 @@ public class EfClienteRepository : IClienteRepository
     public async Task<Cliente?> GetByIdAsync(int id) => await _context.Clientes.FindAsync(id);
     public async Task<Cliente?> GetByCodigoAsync(string codigo) =>
         await _context.Clientes.FirstOrDefaultAsync(c => c.Codigo.ToUpper() == codigo.Trim().ToUpper());
+    public async Task<Cliente?> GetByIdentificacionAsync(string identificacion) =>
+        await _context.Clientes.FirstOrDefaultAsync(c => c.Identificacion.Trim() == identificacion.Trim());
     public async Task<IReadOnlyList<Cliente>> GetAllAsync() => await _context.Clientes.ToListAsync();
     public async Task<IReadOnlyList<Cliente>> BuscarAsync(string criterio) =>
         await _context.Clientes.Where(c => c.Codigo.Contains(criterio) || c.Nombre.Contains(criterio) || c.Identificacion.Contains(criterio)).ToListAsync();
