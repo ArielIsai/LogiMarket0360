@@ -70,6 +70,7 @@ public class LogiMarketDbContext : DbContext
             b.Property(p => p.Descuento).HasPrecision(18, 2);
             b.Property(p => p.TarifaEnvio).HasPrecision(18, 2);
             b.Property(p => p.Total).HasPrecision(18, 2);
+            b.Property(p => p.Estado).UsePropertyAccessMode(PropertyAccessMode.Property);
 
             b.HasOne(p => p.Cliente)
              .WithMany()

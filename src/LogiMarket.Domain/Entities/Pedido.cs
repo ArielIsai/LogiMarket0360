@@ -6,7 +6,18 @@ namespace LogiMarket.Domain.Entities;
 
 public class Pedido
 {
-    private IPedidoEstado _estadoActual = null!;
+    private IPedidoEstado? _estadoActual;
+    public IPedidoEstado EstadoActual
+    {
+        get
+        {
+            if (_estadoActual == null || _estadoActual.Estado != _estado)
+            {
+                ActualizarObjetoEstado();
+            }
+            return _estadoActual!;
+        }
+    }
 
     public int Id { get; set; }
     public string Codigo { get; set; } = string.Empty;
@@ -77,17 +88,17 @@ public class Pedido
     public void TransicionarEstado(IPedidoEstado nuevoEstado)
     {
         _estadoActual = nuevoEstado;
-        Estado = nuevoEstado.Estado;
+        _estado = nuevoEstado.Estado;
     }
 
     public void Validar()
     {
-        _estadoActual.Validar(this);
+        EstadoActual.Validar(this);
     }
 
     public void Pagar()
     {
-        _estadoActual.Pagar(this);
+        EstadoActual.Pagar(this);
         FechaPago = DateTime.UtcNow;
     }
 
@@ -96,20 +107,20 @@ public class Pedido
         if (string.IsNullOrWhiteSpace(numeroGuia))
             throw new DomainException("El número de guía es obligatorio para despachar el pedido.");
 
-        _estadoActual.Despachar(this);
+        EstadoActual.Despachar(this);
         GuiaDespacho = numeroGuia.Trim();
         FechaDespacho = DateTime.UtcNow;
     }
 
     public void Entregar()
     {
-        _estadoActual.Entregar(this);
+        EstadoActual.Entregar(this);
         FechaEntrega = DateTime.UtcNow;
     }
 
     public void Cancelar()
     {
-        _estadoActual.Cancelar(this);
+        EstadoActual.Cancelar(this);
     }
 
     public int ObtenerTotalUnidadesFisicas()
